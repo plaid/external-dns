@@ -31,6 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/linki/instrumented_http"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 
 	"sigs.k8s.io/external-dns/endpoint"
@@ -122,6 +123,14 @@ var (
 		// Cloudfront
 		"cloudfront.net": "Z2FDTNDATAQYW2",
 	}
+	route53RequestsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "external_dns",
+			Subsystem: "provider_aws",
+			Name: "requests_total",
+			Help: "Total number of requests made to AWS Route53 API",
+		},
+	)
 )
 
 // Route53API is the subset of the AWS Route53 API that we actually use.  Add methods as required. Signatures must match exactly.
@@ -146,26 +155,31 @@ func NewRateLimitedRoute53Api(route53api Route53API) *RateLimitedRoute53Api {
 
 func (r *RateLimitedRoute53Api) ListResourceRecordSetsPagesWithContext(ctx context.Context, input *route53.ListResourceRecordSetsInput, fn func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
 	time.Sleep(1)
+	route53RequestsTotal.Inc()
 	return r.client.ListResourceRecordSetsPagesWithContext(ctx, input, fn, opts...)
 }
 
 func (r *RateLimitedRoute53Api) ChangeResourceRecordSetsWithContext(ctx context.Context, input *route53.ChangeResourceRecordSetsInput, opts ...request.Option) (*route53.ChangeResourceRecordSetsOutput, error) {
 	time.Sleep(1)
+	route53RequestsTotal.Inc()
 	return r.client.ChangeResourceRecordSetsWithContext(ctx, input, opts...)
 }
 
 func (r *RateLimitedRoute53Api) CreateHostedZoneWithContext(ctx context.Context, input *route53.CreateHostedZoneInput, opts ...request.Option) (*route53.CreateHostedZoneOutput, error) {
 	time.Sleep(1)
+	route53RequestsTotal.Inc()
 	return r.client.CreateHostedZoneWithContext(ctx, input, opts...)
 }
 
 func (r *RateLimitedRoute53Api) ListHostedZonesPagesWithContext(ctx context.Context, input *route53.ListHostedZonesInput, fn func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
 	time.Sleep(1)
+	route53RequestsTotal.Inc()
 	return r.client.ListHostedZonesPagesWithContext(ctx, input, fn, opts...)
 }
 
 func (r *RateLimitedRoute53Api) ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error) {
 	time.Sleep(1)
+	route53RequestsTotal.Inc()
 	return r.client.ListTagsForResourceWithContext(ctx, input, opts...)
 }
 
@@ -251,6 +265,8 @@ func NewAWSProvider(awsConfig AWSConfig) (*AWSProvider, error) {
 		dryRun:               awsConfig.DryRun,
 		zonesCache:           &zonesListCache{duration: awsConfig.ZoneCacheDuration},
 	}
+
+	prometheus.MustRegister(route53RequestsTotal)
 
 	return provider, nil
 }
