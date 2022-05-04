@@ -134,6 +134,42 @@ type Route53API interface {
 	ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error)
 }
 
+type RateLimitedRoute53Api struct {
+	client Route53API
+}
+
+func NewRateLimitedRoute53Api(route53api Route53API) *RateLimitedRoute53Api {
+	return &RateLimitedRoute53Api{
+		client: route53api,
+	}
+}
+
+func (r *RateLimitedRoute53Api) ListResourceRecordSetsPagesWithContext(ctx context.Context, input *route53.ListResourceRecordSetsInput, fn func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
+	time.Sleep(1)
+	return r.client.ListResourceRecordSetsPagesWithContext(ctx, input, fn, opts...)
+}
+
+func (r *RateLimitedRoute53Api) ChangeResourceRecordSetsWithContext(ctx context.Context, input *route53.ChangeResourceRecordSetsInput, opts ...request.Option) (*route53.ChangeResourceRecordSetsOutput, error) {
+	time.Sleep(1)
+	return r.client.ChangeResourceRecordSetsWithContext(ctx, input, opts...)
+}
+
+func (r *RateLimitedRoute53Api) CreateHostedZoneWithContext(ctx context.Context, input *route53.CreateHostedZoneInput, opts ...request.Option) (*route53.CreateHostedZoneOutput, error) {
+	time.Sleep(1)
+	return r.client.CreateHostedZoneWithContext(ctx, input, opts...)
+}
+
+func (r *RateLimitedRoute53Api) ListHostedZonesPagesWithContext(ctx context.Context, input *route53.ListHostedZonesInput, fn func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
+	time.Sleep(1)
+	return r.client.ListHostedZonesPagesWithContext(ctx, input, fn, opts...)
+}
+
+func (r *RateLimitedRoute53Api) ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error) {
+	time.Sleep(1)
+	return r.client.ListTagsForResourceWithContext(ctx, input, opts...)
+}
+
+
 type zonesListCache struct {
 	age      time.Time
 	duration time.Duration
@@ -203,7 +239,7 @@ func NewAWSProvider(awsConfig AWSConfig) (*AWSProvider, error) {
 	}
 
 	provider := &AWSProvider{
-		client:               route53.New(session),
+		client:               NewRateLimitedRoute53Api(route53.New(session)),
 		domainFilter:         awsConfig.DomainFilter,
 		zoneIDFilter:         awsConfig.ZoneIDFilter,
 		zoneTypeFilter:       awsConfig.ZoneTypeFilter,
