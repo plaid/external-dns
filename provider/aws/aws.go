@@ -133,6 +133,10 @@ var (
 	)
 )
 
+func init() {
+	prometheus.MustRegister(route53RequestsTotal)
+}
+
 // Route53API is the subset of the AWS Route53 API that we actually use.  Add methods as required. Signatures must match exactly.
 // mostly taken from: https://github.com/kubernetes/kubernetes/blob/853167624edb6bc0cfdcdfb88e746e178f5db36c/federation/pkg/dnsprovider/providers/aws/route53/stubs/route53api.go
 type Route53API interface {
@@ -278,8 +282,6 @@ func NewAWSProvider(awsConfig AWSConfig) (*AWSProvider, error) {
 		dryRun:               awsConfig.DryRun,
 		zonesCache:           &zonesListCache{duration: awsConfig.ZoneCacheDuration},
 	}
-
-	prometheus.MustRegister(route53RequestsTotal)
 
 	return provider, nil
 }
