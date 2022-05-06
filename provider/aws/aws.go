@@ -133,10 +133,19 @@ var (
 			Help: "Total number of requests made to AWS Route53 API",
 		},
 	)
+	route53ErrorsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "external_dns",
+			Subsystem: "provider_aws",
+			Name: "errors_total",
+			Help: "Total number of errors coming from AWS Route53 API",
+		},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(route53RequestsTotal)
+	prometheus.MustRegister(route53ErrorsTotal)
 }
 
 // Route53API is the subset of the AWS Route53 API that we actually use.  Add methods as required. Signatures must match exactly.
@@ -164,31 +173,51 @@ func NewRateLimitedRoute53Api(route53api Route53API, rateLimit int) *RateLimited
 func (r *RateLimitedRoute53Api) ListResourceRecordSetsPagesWithContext(ctx context.Context, input *route53.ListResourceRecordSetsInput, fn func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
-	return r.client.ListResourceRecordSetsPagesWithContext(ctx, input, fn, opts...)
+	err := r.client.ListResourceRecordSetsPagesWithContext(ctx, input, fn, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return err
 }
 
 func (r *RateLimitedRoute53Api) ChangeResourceRecordSetsWithContext(ctx context.Context, input *route53.ChangeResourceRecordSetsInput, opts ...request.Option) (*route53.ChangeResourceRecordSetsOutput, error) {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
-	return r.client.ChangeResourceRecordSetsWithContext(ctx, input, opts...)
+	res, err := r.client.ChangeResourceRecordSetsWithContext(ctx, input, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return res, err
 }
 
 func (r *RateLimitedRoute53Api) CreateHostedZoneWithContext(ctx context.Context, input *route53.CreateHostedZoneInput, opts ...request.Option) (*route53.CreateHostedZoneOutput, error) {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
-	return r.client.CreateHostedZoneWithContext(ctx, input, opts...)
+	res, err := r.client.CreateHostedZoneWithContext(ctx, input, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return res, err
 }
 
 func (r *RateLimitedRoute53Api) ListHostedZonesPagesWithContext(ctx context.Context, input *route53.ListHostedZonesInput, fn func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
-	return r.client.ListHostedZonesPagesWithContext(ctx, input, fn, opts...)
+	err := r.client.ListHostedZonesPagesWithContext(ctx, input, fn, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return err
 }
 
 func (r *RateLimitedRoute53Api) ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error) {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
-	return r.client.ListTagsForResourceWithContext(ctx, input, opts...)
+	res, err := r.client.ListTagsForResourceWithContext(ctx, input, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return res, err
 }
 
 
