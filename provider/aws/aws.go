@@ -158,19 +158,19 @@ type Route53API interface {
 	ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error)
 }
 
-type RateLimitedRoute53Api struct {
+type RateLimitedRoute53API struct {
 	rateLimiter ratelimit.Limiter
 	client Route53API
 }
 
-func NewRateLimitedRoute53Api(route53api Route53API, rateLimit int) *RateLimitedRoute53Api {
-	return &RateLimitedRoute53Api{
+func NewRateLimitedRoute53API(route53api Route53API, rateLimit int) *RateLimitedRoute53API {
+	return &RateLimitedRoute53API{
 		rateLimiter: ratelimit.New(rateLimit),
 		client: route53api,
 	}
 }
 
-func (r *RateLimitedRoute53Api) ListResourceRecordSetsPagesWithContext(ctx context.Context, input *route53.ListResourceRecordSetsInput, fn func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
+func (r *RateLimitedRoute53API) ListResourceRecordSetsPagesWithContext(ctx context.Context, input *route53.ListResourceRecordSetsInput, fn func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
 	err := r.client.ListResourceRecordSetsPagesWithContext(ctx, input, fn, opts...)
@@ -180,7 +180,7 @@ func (r *RateLimitedRoute53Api) ListResourceRecordSetsPagesWithContext(ctx conte
 	return err
 }
 
-func (r *RateLimitedRoute53Api) ChangeResourceRecordSetsWithContext(ctx context.Context, input *route53.ChangeResourceRecordSetsInput, opts ...request.Option) (*route53.ChangeResourceRecordSetsOutput, error) {
+func (r *RateLimitedRoute53API) ChangeResourceRecordSetsWithContext(ctx context.Context, input *route53.ChangeResourceRecordSetsInput, opts ...request.Option) (*route53.ChangeResourceRecordSetsOutput, error) {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
 	res, err := r.client.ChangeResourceRecordSetsWithContext(ctx, input, opts...)
@@ -190,7 +190,7 @@ func (r *RateLimitedRoute53Api) ChangeResourceRecordSetsWithContext(ctx context.
 	return res, err
 }
 
-func (r *RateLimitedRoute53Api) CreateHostedZoneWithContext(ctx context.Context, input *route53.CreateHostedZoneInput, opts ...request.Option) (*route53.CreateHostedZoneOutput, error) {
+func (r *RateLimitedRoute53API) CreateHostedZoneWithContext(ctx context.Context, input *route53.CreateHostedZoneInput, opts ...request.Option) (*route53.CreateHostedZoneOutput, error) {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
 	res, err := r.client.CreateHostedZoneWithContext(ctx, input, opts...)
@@ -200,7 +200,7 @@ func (r *RateLimitedRoute53Api) CreateHostedZoneWithContext(ctx context.Context,
 	return res, err
 }
 
-func (r *RateLimitedRoute53Api) ListHostedZonesPagesWithContext(ctx context.Context, input *route53.ListHostedZonesInput, fn func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
+func (r *RateLimitedRoute53API) ListHostedZonesPagesWithContext(ctx context.Context, input *route53.ListHostedZonesInput, fn func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
 	err := r.client.ListHostedZonesPagesWithContext(ctx, input, fn, opts...)
@@ -210,7 +210,7 @@ func (r *RateLimitedRoute53Api) ListHostedZonesPagesWithContext(ctx context.Cont
 	return err
 }
 
-func (r *RateLimitedRoute53Api) ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error) {
+func (r *RateLimitedRoute53API) ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error) {
 	r.rateLimiter.Take()
 	route53RequestsTotal.Inc()
 	res, err := r.client.ListTagsForResourceWithContext(ctx, input, opts...)
@@ -291,7 +291,7 @@ func NewAWSProvider(awsConfig AWSConfig) (*AWSProvider, error) {
 	}
 
 	provider := &AWSProvider{
-		client:               NewRateLimitedRoute53Api(route53.New(session), awsConfig.RateLimit),
+		client:               NewRateLimitedRoute53API(route53.New(session), awsConfig.RateLimit),
 		domainFilter:         awsConfig.DomainFilter,
 		zoneIDFilter:         awsConfig.ZoneIDFilter,
 		zoneTypeFilter:       awsConfig.ZoneTypeFilter,
