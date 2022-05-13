@@ -31,11 +31,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/linki/instrumented_http"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 
 	"sigs.k8s.io/external-dns/endpoint"
 	"sigs.k8s.io/external-dns/plan"
 	"sigs.k8s.io/external-dns/provider"
+
+	"go.uber.org/ratelimit"
 )
 
 const (
@@ -123,6 +126,28 @@ var canonicalHostedZones = map[string]string{
 	// Cloudfront
 	"cloudfront.net": "Z2FDTNDATAQYW2",
 }
+	route53RequestsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "external_dns",
+			Subsystem: "provider_aws",
+			Name: "requests_total",
+			Help: "Total number of requests made to AWS Route53 API",
+		},
+	)
+	route53ErrorsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "external_dns",
+			Subsystem: "provider_aws",
+			Name: "errors_total",
+			Help: "Total number of errors coming from AWS Route53 API",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(route53RequestsTotal)
+	prometheus.MustRegister(route53ErrorsTotal)
+}
 
 // Route53API is the subset of the AWS Route53 API that we actually use.  Add methods as required. Signatures must match exactly.
 // mostly taken from: https://github.com/kubernetes/kubernetes/blob/853167624edb6bc0cfdcdfb88e746e178f5db36c/federation/pkg/dnsprovider/providers/aws/route53/stubs/route53api.go
@@ -133,6 +158,69 @@ type Route53API interface {
 	ListHostedZonesPagesWithContext(ctx context.Context, input *route53.ListHostedZonesInput, fn func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error
 	ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error)
 }
+
+type RateLimitedRoute53API struct {
+	rateLimiter ratelimit.Limiter
+	client Route53API
+}
+
+func NewRateLimitedRoute53API(route53api Route53API, rateLimit int) *RateLimitedRoute53API {
+	return &RateLimitedRoute53API{
+		rateLimiter: ratelimit.New(rateLimit),
+		client: route53api,
+	}
+}
+
+func (r *RateLimitedRoute53API) ListResourceRecordSetsPagesWithContext(ctx context.Context, input *route53.ListResourceRecordSetsInput, fn func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
+	r.rateLimiter.Take()
+	route53RequestsTotal.Inc()
+	err := r.client.ListResourceRecordSetsPagesWithContext(ctx, input, fn, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return err
+}
+
+func (r *RateLimitedRoute53API) ChangeResourceRecordSetsWithContext(ctx context.Context, input *route53.ChangeResourceRecordSetsInput, opts ...request.Option) (*route53.ChangeResourceRecordSetsOutput, error) {
+	r.rateLimiter.Take()
+	route53RequestsTotal.Inc()
+	res, err := r.client.ChangeResourceRecordSetsWithContext(ctx, input, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return res, err
+}
+
+func (r *RateLimitedRoute53API) CreateHostedZoneWithContext(ctx context.Context, input *route53.CreateHostedZoneInput, opts ...request.Option) (*route53.CreateHostedZoneOutput, error) {
+	r.rateLimiter.Take()
+	route53RequestsTotal.Inc()
+	res, err := r.client.CreateHostedZoneWithContext(ctx, input, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return res, err
+}
+
+func (r *RateLimitedRoute53API) ListHostedZonesPagesWithContext(ctx context.Context, input *route53.ListHostedZonesInput, fn func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
+	r.rateLimiter.Take()
+	route53RequestsTotal.Inc()
+	err := r.client.ListHostedZonesPagesWithContext(ctx, input, fn, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return err
+}
+
+func (r *RateLimitedRoute53API) ListTagsForResourceWithContext(ctx context.Context, input *route53.ListTagsForResourceInput, opts ...request.Option) (*route53.ListTagsForResourceOutput, error) {
+	r.rateLimiter.Take()
+	route53RequestsTotal.Inc()
+	res, err := r.client.ListTagsForResourceWithContext(ctx, input, opts...)
+	if err != nil {
+		route53ErrorsTotal.Inc()
+	}
+	return res, err
+}
+
 
 type zonesListCache struct {
 	age      time.Time
@@ -175,6 +263,7 @@ type AWSConfig struct {
 	PreferCNAME          bool
 	DryRun               bool
 	ZoneCacheDuration    time.Duration
+	RateLimit            int
 }
 
 // NewAWSProvider initializes a new AWS Route53 based Provider.
@@ -211,7 +300,7 @@ func NewAWSProvider(awsConfig AWSConfig) (*AWSProvider, error) {
 	}
 
 	provider := &AWSProvider{
-		client:               route53.New(session),
+		client:               NewRateLimitedRoute53API(route53.New(session), awsConfig.RateLimit),
 		domainFilter:         awsConfig.DomainFilter,
 		zoneIDFilter:         awsConfig.ZoneIDFilter,
 		zoneTypeFilter:       awsConfig.ZoneTypeFilter,

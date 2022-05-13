@@ -127,9 +127,9 @@ func (suite *ByNamesTestSuite) TestAllInitialized() {
 			}: "TCPIngressesList",
 		}), nil)
 
-	sources, err := ByNames(context.TODO(), mockClientGenerator, []string{"service", "ingress", "istio-gateway", "contour-httpproxy", "kong-tcpingress", "fake"}, minimalConfig)
+	sources, err := ByNames(context.TODO(), mockClientGenerator, []string{"service", "ingress", "istio-gateway", "contour-httpproxy", "kong-tcpingress", "fake", "legacy-ingress"}, minimalConfig)
 	suite.NoError(err, "should not generate errors")
-	suite.Len(sources, 6, "should generate all six sources")
+	suite.Len(sources, 7, "should generate all six sources")
 }
 
 func (suite *ByNamesTestSuite) TestOnlyFake() {
@@ -165,6 +165,9 @@ func (suite *ByNamesTestSuite) TestKubeClientFails() {
 	suite.Error(err, "should return an error if kubernetes client cannot be created")
 
 	_, err = ByNames(context.TODO(), mockClientGenerator, []string{"kong-tcpingress"}, minimalConfig)
+	suite.Error(err, "should return an error if kubernetes client cannot be created")
+
+	_, err = ByNames(context.TODO(), mockClientGenerator, []string{"legacy-ingress"}, minimalConfig)
 	suite.Error(err, "should return an error if kubernetes client cannot be created")
 }
 
