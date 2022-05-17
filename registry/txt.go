@@ -192,6 +192,10 @@ func (im *TXTRegistry) ApplyChanges(ctx context.Context, changes *plan.Changes) 
 		}
 	}
 
+	// this avoids trying to delete records that are already gone
+	filteredChanges.Delete = filterExistingRecords(changes.Current, filteredChanges.Delete)
+
+
 	// make sure TXT records are consistently updated as well
 	for _, r := range filteredChanges.UpdateOld {
 		// when we updateOld TXT records for which value has changed (due to new label) this would still work because

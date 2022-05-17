@@ -49,3 +49,15 @@ func filterOwnedRecords(ownerID string, eps []*endpoint.Endpoint) []*endpoint.En
 	}
 	return filtered
 }
+
+func filterExistingRecords(current []*endpoint.Endpoint, records []*endpoint.Endpoint) []*endpoint.Endpoint {
+	filtered := []*endpoint.Endpoint{}
+	for _, c := range current {
+		for _, r := range records {
+			if c.DNSName == r.DNSName && c.RecordType == r.RecordType {
+				filtered = append(filtered, r)
+			}
+		}
+	}
+	return filtered
+}

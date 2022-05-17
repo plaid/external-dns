@@ -412,6 +412,7 @@ func testTXTRegistryApplyChangesWithPrefix(t *testing.T) {
 		},
 	})
 	r, _ := NewTXTRegistry(p, "txt.", "", "owner", time.Hour, "")
+	current, _ := r.Records(ctx)
 
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -431,6 +432,7 @@ func testTXTRegistryApplyChangesWithPrefix(t *testing.T) {
 			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, "owner"),
 			newEndpointWithOwner("multiple.test-zone.example.org", "lb2.loadbalancer.com", endpoint.RecordTypeCNAME, "owner").WithSetIdentifier("test-set-2"),
 		},
+		Current: current,
 	}
 	expected := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -609,6 +611,7 @@ func testTXTRegistryApplyChangesWithSuffix(t *testing.T) {
 		},
 	})
 	r, _ := NewTXTRegistry(p, "", "-txt", "owner", time.Hour, "wildcard")
+	current, _ := r.Records(ctx)
 
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -629,6 +632,7 @@ func testTXTRegistryApplyChangesWithSuffix(t *testing.T) {
 			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, "owner"),
 			newEndpointWithOwner("multiple.test-zone.example.org", "lb2.loadbalancer.com", endpoint.RecordTypeCNAME, "owner").WithSetIdentifier("test-set-2"),
 		},
+		Current: current,
 	}
 	expected := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -713,6 +717,7 @@ func testTXTRegistryApplyChangesNoPrefix(t *testing.T) {
 		},
 	})
 	r, _ := NewTXTRegistry(p, "", "", "owner", time.Hour, "")
+	current, _ := r.Records(ctx)
 
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -728,6 +733,7 @@ func testTXTRegistryApplyChangesNoPrefix(t *testing.T) {
 		UpdateOld: []*endpoint.Endpoint{
 			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, "owner-2"),
 		},
+		Current: current,
 	}
 	expected := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -878,6 +884,7 @@ func TestNewTXTScheme(t *testing.T) {
 		},
 	})
 	r, _ := NewTXTRegistry(p, "", "", "owner", time.Hour, "")
+	current, _ := r.Records(ctx)
 
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -893,6 +900,7 @@ func TestNewTXTScheme(t *testing.T) {
 		UpdateOld: []*endpoint.Endpoint{
 			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, "owner-2"),
 		},
+		Current: current,
 	}
 	expected := &plan.Changes{
 		Create: []*endpoint.Endpoint{

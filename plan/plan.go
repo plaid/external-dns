@@ -60,6 +60,8 @@ type Changes struct {
 	UpdateNew []*endpoint.Endpoint
 	// Records that need to be deleted
 	Delete []*endpoint.Endpoint
+	// Records that exists in the repo
+	Current []*endpoint.Endpoint
 }
 
 // planTable is a supplementary struct for Plan
@@ -142,7 +144,9 @@ func (p *Plan) Calculate() *Plan {
 		t.addCandidate(desired)
 	}
 
-	changes := &Changes{}
+	changes := &Changes{
+		Current: p.Current,
+	}
 
 	for _, topRow := range t.rows {
 		for _, row := range topRow {
