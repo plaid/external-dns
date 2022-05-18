@@ -131,16 +131,16 @@ var (
 		prometheus.CounterOpts{
 			Namespace: "external_dns",
 			Subsystem: "provider_aws",
-			Name: "requests_total",
-			Help: "Total number of requests made to AWS Route53 API",
+			Name:      "requests_total",
+			Help:      "Total number of requests made to AWS Route53 API",
 		},
 	)
 	route53ErrorsTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: "external_dns",
 			Subsystem: "provider_aws",
-			Name: "errors_total",
-			Help: "Total number of errors coming from AWS Route53 API",
+			Name:      "errors_total",
+			Help:      "Total number of errors coming from AWS Route53 API",
 		},
 	)
 )
@@ -162,13 +162,13 @@ type Route53API interface {
 
 type RateLimitedRoute53API struct {
 	rateLimiter ratelimit.Limiter
-	client Route53API
+	client      Route53API
 }
 
 func NewRateLimitedRoute53API(route53api Route53API, rateLimit int) *RateLimitedRoute53API {
 	return &RateLimitedRoute53API{
 		rateLimiter: ratelimit.New(rateLimit),
-		client: route53api,
+		client:      route53api,
 	}
 }
 
@@ -221,7 +221,6 @@ func (r *RateLimitedRoute53API) ListTagsForResourceWithContext(ctx context.Conte
 	}
 	return res, err
 }
-
 
 type zonesListCache struct {
 	age      time.Time
