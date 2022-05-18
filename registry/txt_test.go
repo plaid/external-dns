@@ -959,6 +959,33 @@ func TestGenerateTXT(t *testing.T) {
 	assert.Equal(t, expectedTXT, gotTXT)
 }
 
+func TestFilterExistingRecords(t *testing.T) {
+	p := inmemory.NewInMemoryProvider()
+	p.CreateZone(testZone)
+	r, _ := NewTXTRegistry(p, "", "", "owner", time.Hour, "")
+	r.txtRecords = make(map[string]bool)
+	r.txtRecords["cname-foo.test-zone.example.org::test-set-1"] = true
+	r.txtRecords["cname-bar.test-zone.example.org::test-set-1"] = true
+	r.txtRecords["cname-foobar.test-zone.example.org::"] = true
+
+	endpoints := []*endpoint.Endpoint{
+		newEndpointWithOwner("foo.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeCNAME, "").WithSetIdentifier("test-set-1"),
+		newEndpointWithOwner("cname-foo.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-set-1"),
+		newEndpointWithOwner("alias-foo.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-test-1"),
+		newEndpointWithOwner("foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeCNAME, ""),
+		newEndpointWithOwner("cname-foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeTXT, ""),
+		newEndpointWithOwner("alias-foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeTXT, ""),
+	}
+	got := r.filterExistingRecords(endpoints)
+	expected := []*endpoint.Endpoint{
+		newEndpointWithOwner("foo.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeCNAME, "").WithSetIdentifier("test-set-1"),
+		newEndpointWithOwner("cname-foo.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-set-1"),
+		newEndpointWithOwner("foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeCNAME, ""),
+		newEndpointWithOwner("cname-foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeTXT, ""),
+	}
+	assert.True(t, testutils.SameEndpoints(expected, got))
+}
+
 /**
 
 helper methods

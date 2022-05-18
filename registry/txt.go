@@ -43,8 +43,8 @@ type TXTRegistry struct {
 	recordsCacheRefreshTime time.Time
 	cacheInterval           time.Duration
 
-	// cache the txt records in memory to avoid deleting one that doesn't actually exists
-	txtRecordsCache []*endpoint.Endpoint
+	// the set of existing txt records, used to avoid deleting records that do not actually exist
+	txtRecords map[string]bool
 
 	// optional string to use to replace the asterisk in wildcard entries - without using this,
 	// registry TXT records corresponding to wildcard records will be invalid (and rejected by most providers), due to
@@ -98,7 +98,7 @@ func (im *TXTRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error
 	}
 
 	endpoints := []*endpoint.Endpoint{}
-	txtEndpoints := []*endpoint.Endpoint{}
+	im.txtRecords = make(map[string]bool)
 
 	labelMap := map[string]endpoint.Labels{}
 
@@ -107,7 +107,7 @@ func (im *TXTRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error
 			endpoints = append(endpoints, record)
 			continue
 		}
-		txtEndpoints = append(txtEndpoints, record)
+		im.txtRecords[fmt.Sprintf("%s::%s", record.DNSName, record.SetIdentifier)] = true
 
 		// We simply assume that TXT records for the registry will always have only one target.
 		labels, err := endpoint.NewLabelsFromString(record.Targets[0])
@@ -148,7 +148,6 @@ func (im *TXTRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error
 		im.recordsCache = endpoints
 		im.recordsCacheRefreshTime = time.Now()
 	}
-	im.txtRecordsCache = txtEndpoints
 
 	return endpoints, nil
 }
@@ -415,10 +414,8 @@ func (im *TXTRegistry) filterExistingRecords(records []*endpoint.Endpoint) []*en
 			filtered = append(filtered, r)
 			continue
 		}
-		for _, t := range im.txtRecordsCache {
-			if r.DNSName == t.DNSName && r.SetIdentifier == t.SetIdentifier {
-				filtered = append(filtered, r)
-			}
+		if im.txtRecords[fmt.Sprintf("%s::%s", r.DNSName, r.SetIdentifier)] {
+			filtered = append(filtered, r)
 		}
 	}
 	return filtered
