@@ -388,30 +388,22 @@ func testTXTRegistryApplyChangesWithPrefix(t *testing.T) {
 	ctxEndpoints := []*endpoint.Endpoint{}
 	ctx := context.WithValue(context.Background(), provider.RecordsContextKey, ctxEndpoints)
 	p.OnApplyChanges = func(ctx context.Context, got *plan.Changes) {
-		assert.Equal(t, ctxEndpoints, ctx.Value(provider.RecordsContextKey))
+		assert.Equal(t, nil, ctx.Value(provider.RecordsContextKey))
 	}
-	p.ApplyChanges(ctx, &plan.Changes{
+	r, _ := NewTXTRegistry(p, "txt.", "", "owner", time.Hour, "")
+	err := r.ApplyChanges(ctx, &plan.Changes{
 		Create: []*endpoint.Endpoint{
 			newEndpointWithOwner("foo.test-zone.example.org", "foo.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
 			newEndpointWithOwner("bar.test-zone.example.org", "my-domain.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("txt.bar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
 			newEndpointWithOwner("txt.bar.test-zone.example.org", "baz.test-zone.example.org", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("qux.test-zone.example.org", "random", endpoint.RecordTypeTXT, ""),
 			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("txt.tar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("txt.cname-tar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
 			newEndpointWithOwner("foobar.test-zone.example.org", "foobar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("txt.foobar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("txt.cname-foobar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
 			newEndpointWithOwner("multiple.test-zone.example.org", "lb1.loadbalancer.com", endpoint.RecordTypeCNAME, "").WithSetIdentifier("test-set-1"),
-			newEndpointWithOwner("txt.multiple.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-set-1"),
-			newEndpointWithOwner("txt.cname-multiple.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-set-1"),
 			newEndpointWithOwner("multiple.test-zone.example.org", "lb2.loadbalancer.com", endpoint.RecordTypeCNAME, "").WithSetIdentifier("test-set-2"),
-			newEndpointWithOwner("txt.multiple.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-set-2"),
-			newEndpointWithOwner("txt.cname-multiple.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-set-2"),
 		},
 	})
-	r, _ := NewTXTRegistry(p, "txt.", "", "owner", time.Hour, "")
+	assert.NoError(t, err)
+	r.Records(ctx) // init txtRecordsCache
 
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -485,7 +477,7 @@ func testTXTRegistryApplyChangesWithPrefix(t *testing.T) {
 		assert.True(t, testutils.SamePlanChanges(mGot, mExpected))
 		assert.Equal(t, nil, ctx.Value(provider.RecordsContextKey))
 	}
-	err := r.ApplyChanges(ctx, changes)
+	err = r.ApplyChanges(ctx, changes)
 	require.NoError(t, err)
 }
 
@@ -501,6 +493,7 @@ func testTXTRegistryApplyChangesWithTemplatedPrefix(t *testing.T) {
 		Create: []*endpoint.Endpoint{},
 	})
 	r, _ := NewTXTRegistry(p, "prefix%{record_type}.", "", "owner", time.Hour, "")
+	r.Records(ctx) // init txtRecordsCache
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
 			newEndpointWithOwnerResource("new-record-1.test-zone.example.org", "new-loadbalancer-1.lb.com", endpoint.RecordTypeCNAME, "", "ingress/default/my-ingress"),
@@ -544,6 +537,7 @@ func testTXTRegistryApplyChangesWithTemplatedSuffix(t *testing.T) {
 		assert.Equal(t, ctxEndpoints, ctx.Value(provider.RecordsContextKey))
 	}
 	r, _ := NewTXTRegistry(p, "", "-%{record_type}suffix", "owner", time.Hour, "")
+	r.Records(ctx) // init txtRecordsCache
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
 			newEndpointWithOwnerResource("new-record-1.test-zone.example.org", "new-loadbalancer-1.lb.com", endpoint.RecordTypeCNAME, "", "ingress/default/my-ingress"),
@@ -609,6 +603,7 @@ func testTXTRegistryApplyChangesWithSuffix(t *testing.T) {
 		},
 	})
 	r, _ := NewTXTRegistry(p, "", "-txt", "owner", time.Hour, "wildcard")
+	r.Records(ctx) // init txtRecordsCache
 
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -684,7 +679,7 @@ func testTXTRegistryApplyChangesWithSuffix(t *testing.T) {
 			"Delete":    got.Delete,
 		}
 		assert.True(t, testutils.SamePlanChanges(mGot, mExpected))
-		assert.Equal(t, nil, ctx.Value(provider.RecordsContextKey))
+		assert.Nil(t, ctx.Value(provider.RecordsContextKey))
 	}
 	err := r.ApplyChanges(ctx, changes)
 	require.NoError(t, err)
@@ -700,19 +695,24 @@ func testTXTRegistryApplyChangesNoPrefix(t *testing.T) {
 	}
 	p.ApplyChanges(ctx, &plan.Changes{
 		Create: []*endpoint.Endpoint{
-			newEndpointWithOwner("foo.test-zone.example.org", "foo.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("bar.test-zone.example.org", "my-domain.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("txt.bar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("txt.bar.test-zone.example.org", "baz.test-zone.example.org", endpoint.RecordTypeCNAME, ""),
 			newEndpointWithOwner("qux.test-zone.example.org", "random", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("txt.tar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("foobar.test-zone.example.org", "foobar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("foobar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("cname-foobar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
 		},
 	})
+
+	p.OnApplyChanges = func(ctx context.Context, got *plan.Changes) {
+		assert.Nil(t, ctx.Value(provider.RecordsContextKey))
+	}
 	r, _ := NewTXTRegistry(p, "", "", "owner", time.Hour, "")
+	err := r.ApplyChanges(ctx, &plan.Changes{
+		Create: []*endpoint.Endpoint{
+			newEndpointWithOwner("foo.test-zone.example.org", "foo.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
+			newEndpointWithOwner("bar.test-zone.example.org", "my-domain.com", endpoint.RecordTypeCNAME, ""),
+			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
+			newEndpointWithOwner("foobar.test-zone.example.org", "foobar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
+		},
+	})
+	assert.NoError(t, err)
+	r.Records(ctx) // init txtRecordsCache
 
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -762,7 +762,7 @@ func testTXTRegistryApplyChangesNoPrefix(t *testing.T) {
 		assert.True(t, testutils.SamePlanChanges(mGot, mExpected))
 		assert.Equal(t, nil, ctx.Value(provider.RecordsContextKey))
 	}
-	err := r.ApplyChanges(ctx, changes)
+	err = r.ApplyChanges(ctx, changes)
 	require.NoError(t, err)
 }
 
@@ -865,19 +865,24 @@ func TestNewTXTScheme(t *testing.T) {
 	}
 	p.ApplyChanges(ctx, &plan.Changes{
 		Create: []*endpoint.Endpoint{
-			newEndpointWithOwner("foo.test-zone.example.org", "foo.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("bar.test-zone.example.org", "my-domain.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("txt.bar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("txt.bar.test-zone.example.org", "baz.test-zone.example.org", endpoint.RecordTypeCNAME, ""),
 			newEndpointWithOwner("qux.test-zone.example.org", "random", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("txt.tar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("foobar.test-zone.example.org", "foobar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
-			newEndpointWithOwner("foobar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
-			newEndpointWithOwner("cname-foobar.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, ""),
 		},
 	})
+
+	p.OnApplyChanges = func(ctx context.Context, got *plan.Changes) {
+		assert.Nil(t, ctx.Value(provider.RecordsContextKey))
+	}
 	r, _ := NewTXTRegistry(p, "", "", "owner", time.Hour, "")
+	err := r.ApplyChanges(ctx, &plan.Changes{
+		Create: []*endpoint.Endpoint{
+			newEndpointWithOwner("foo.test-zone.example.org", "foo.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
+			newEndpointWithOwner("bar.test-zone.example.org", "my-domain.com", endpoint.RecordTypeCNAME, ""),
+			newEndpointWithOwner("tar.test-zone.example.org", "tar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
+			newEndpointWithOwner("foobar.test-zone.example.org", "foobar.loadbalancer.com", endpoint.RecordTypeCNAME, ""),
+		},
+	})
+	assert.NoError(t, err)
+	r.Records(ctx) // init txtRecordsCache
 
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
@@ -927,7 +932,7 @@ func TestNewTXTScheme(t *testing.T) {
 		assert.True(t, testutils.SamePlanChanges(mGot, mExpected))
 		assert.Equal(t, nil, ctx.Value(provider.RecordsContextKey))
 	}
-	err := r.ApplyChanges(ctx, changes)
+	err = r.ApplyChanges(ctx, changes)
 	require.NoError(t, err)
 }
 
@@ -938,13 +943,13 @@ func TestGenerateTXT(t *testing.T) {
 			DNSName:    "foo.test-zone.example.org",
 			Targets:    endpoint.Targets{"\"heritage=external-dns,external-dns/owner=owner\""},
 			RecordType: endpoint.RecordTypeTXT,
-			Labels: map[string]string{},
+			Labels:     map[string]string{},
 		},
 		{
 			DNSName:    "cname-foo.test-zone.example.org",
 			Targets:    endpoint.Targets{"\"heritage=external-dns,external-dns/owner=owner\""},
 			RecordType: endpoint.RecordTypeTXT,
-			Labels: map[string]string{},
+			Labels:     map[string]string{},
 		},
 	}
 	p := inmemory.NewInMemoryProvider()
@@ -952,6 +957,33 @@ func TestGenerateTXT(t *testing.T) {
 	r, _ := NewTXTRegistry(p, "", "", "owner", time.Hour, "")
 	gotTXT := r.generateTXTRecord(record)
 	assert.Equal(t, expectedTXT, gotTXT)
+}
+
+func TestFilterExistingRecords(t *testing.T) {
+	p := inmemory.NewInMemoryProvider()
+	p.CreateZone(testZone)
+	r, _ := NewTXTRegistry(p, "", "", "owner", time.Hour, "")
+	r.txtRecords = make(map[string]bool)
+	r.txtRecords["cname-foo.test-zone.example.org::test-set-1"] = true
+	r.txtRecords["cname-bar.test-zone.example.org::test-set-1"] = true
+	r.txtRecords["cname-foobar.test-zone.example.org::"] = true
+
+	endpoints := []*endpoint.Endpoint{
+		newEndpointWithOwner("foo.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeCNAME, "").WithSetIdentifier("test-set-1"),
+		newEndpointWithOwner("cname-foo.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-set-1"),
+		newEndpointWithOwner("alias-foo.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-test-1"),
+		newEndpointWithOwner("foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeCNAME, ""),
+		newEndpointWithOwner("cname-foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeTXT, ""),
+		newEndpointWithOwner("alias-foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeTXT, ""),
+	}
+	got := r.filterExistingRecords(endpoints)
+	expected := []*endpoint.Endpoint{
+		newEndpointWithOwner("foo.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeCNAME, "").WithSetIdentifier("test-set-1"),
+		newEndpointWithOwner("cname-foo.test-zone.example.org", "\"heritage=external-dns,external-dns/owner=owner\"", endpoint.RecordTypeTXT, "").WithSetIdentifier("test-set-1"),
+		newEndpointWithOwner("foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeCNAME, ""),
+		newEndpointWithOwner("cname-foobar.test-zone.example.org", "loadbalancer.example.org", endpoint.RecordTypeTXT, ""),
+	}
+	assert.True(t, testutils.SameEndpoints(expected, got))
 }
 
 /**
