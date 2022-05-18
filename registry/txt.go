@@ -43,6 +43,9 @@ type TXTRegistry struct {
 	recordsCacheRefreshTime time.Time
 	cacheInterval           time.Duration
 
+	// cache the txt records in memory to avoid deleting one that doesn't actually exists
+	txtRecordsCache []*endpoint.Endpoint
+
 	// optional string to use to replace the asterisk in wildcard entries - without using this,
 	// registry TXT records corresponding to wildcard records will be invalid (and rejected by most providers), due to
 	// having a '*' appear (not as the first character) - see https://tools.ietf.org/html/rfc1034#section-4.3.3
@@ -95,6 +98,7 @@ func (im *TXTRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error
 	}
 
 	endpoints := []*endpoint.Endpoint{}
+	txtEndpoints := []*endpoint.Endpoint{}
 
 	labelMap := map[string]endpoint.Labels{}
 
@@ -103,6 +107,8 @@ func (im *TXTRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error
 			endpoints = append(endpoints, record)
 			continue
 		}
+		txtEndpoints = append(txtEndpoints, record)
+
 		// We simply assume that TXT records for the registry will always have only one target.
 		labels, err := endpoint.NewLabelsFromString(record.Targets[0])
 		if err == endpoint.ErrInvalidHeritage {
@@ -142,6 +148,7 @@ func (im *TXTRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error
 		im.recordsCache = endpoints
 		im.recordsCacheRefreshTime = time.Now()
 	}
+	im.txtRecordsCache = txtEndpoints
 
 	return endpoints, nil
 }
@@ -191,6 +198,9 @@ func (im *TXTRegistry) ApplyChanges(ctx context.Context, changes *plan.Changes) 
 			im.removeFromCache(r)
 		}
 	}
+
+	// this avoids trying to delete records that are already gone
+	filteredChanges.Delete = im.filterExistingRecords(filteredChanges.Delete)
 
 	// make sure TXT records are consistently updated as well
 	for _, r := range filteredChanges.UpdateOld {
@@ -396,4 +406,20 @@ func (im *TXTRegistry) removeFromCache(ep *endpoint.Endpoint) {
 			return
 		}
 	}
+}
+
+func (im *TXTRegistry) filterExistingRecords(records []*endpoint.Endpoint) []*endpoint.Endpoint {
+	filtered := []*endpoint.Endpoint{}
+	for _, r := range records {
+		if r.RecordType != endpoint.RecordTypeTXT {
+			filtered = append(filtered, r)
+			continue
+		}
+		for _, t := range im.txtRecordsCache {
+			if r.DNSName == t.DNSName && r.SetIdentifier == t.SetIdentifier {
+				filtered = append(filtered, r)
+			}
+		}
+	}
+	return filtered
 }
