@@ -172,8 +172,13 @@ func NewRateLimitedRoute53API(route53api Route53API, rateLimit int) *RateLimited
 
 func (r *RateLimitedRoute53API) ListResourceRecordSetsPagesWithContext(ctx context.Context, input *route53.ListResourceRecordSetsInput, fn func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
 	r.rateLimiter.Take()
-	route53RequestsTotal.Inc()
-	err := r.client.ListResourceRecordSetsPagesWithContext(ctx, input, fn, opts...)
+	f := func(resp *route53.ListResourceRecordSetsOutput, lastPage bool) (shouldContinue bool) {
+		route53RequestsTotal.Inc()
+		result := fn(resp, lastPage)
+		r.rateLimiter.Take()
+		return result
+	}
+	err := r.client.ListResourceRecordSetsPagesWithContext(ctx, input, f, opts...)
 	if err != nil {
 		route53ErrorsTotal.Inc()
 	}
@@ -202,8 +207,13 @@ func (r *RateLimitedRoute53API) CreateHostedZoneWithContext(ctx context.Context,
 
 func (r *RateLimitedRoute53API) ListHostedZonesPagesWithContext(ctx context.Context, input *route53.ListHostedZonesInput, fn func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool), opts ...request.Option) error {
 	r.rateLimiter.Take()
-	route53RequestsTotal.Inc()
-	err := r.client.ListHostedZonesPagesWithContext(ctx, input, fn, opts...)
+	f := func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool) {
+		route53RequestsTotal.Inc()
+		result := fn(resp, lastPage)
+		r.rateLimiter.Take()
+		return result
+	}
+	err := r.client.ListHostedZonesPagesWithContext(ctx, input, f, opts...)
 	if err != nil {
 		route53ErrorsTotal.Inc()
 	}
