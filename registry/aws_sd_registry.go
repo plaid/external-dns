@@ -108,3 +108,11 @@ func (sdr *AWSSDRegistry) PropertyValuesEqual(name string, previous string, curr
 func (sdr *AWSSDRegistry) AdjustEndpoints(endpoints []*endpoint.Endpoint) []*endpoint.Endpoint {
 	return sdr.provider.AdjustEndpoints(endpoints)
 }
+
+func (sdr *AWSSDRegistry) UsedCache() bool {
+	return false
+}
+
+func (sdr *AWSSDRegistry) ClearCache() {
+	return
+}
