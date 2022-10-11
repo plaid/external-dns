@@ -36,6 +36,8 @@ type Registry interface {
 	AdjustEndpoints(endpoints []*endpoint.Endpoint) []*endpoint.Endpoint
 	GetDomainFilter() endpoint.DomainFilterInterface
 	MissingRecords() []*endpoint.Endpoint
+	UsedCache() bool
+	ClearCache()
 }
 
 // TODO(ideahitme): consider moving this to Plan
