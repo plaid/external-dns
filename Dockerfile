@@ -25,6 +25,8 @@ RUN go mod download
 
 COPY . .
 
+RUN test -f ./build/external-dns || make build.$ARCH
+
 FROM alpine:3.17
 
 RUN apk update && apk add "libcrypto3>=3.0.8-r0" "libssl3>=3.0.8-r0" && rm -rf /var/cache/apt/*
