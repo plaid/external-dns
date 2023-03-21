@@ -113,6 +113,4 @@ func (sdr *AWSSDRegistry) UsedCache() bool {
 	return false
 }
 
-func (sdr *AWSSDRegistry) ClearCache() {
-	return
-}
+func (sdr *AWSSDRegistry) ClearCache() {}

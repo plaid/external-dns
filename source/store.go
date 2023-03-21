@@ -229,6 +229,8 @@ func BuildWithConfig(ctx context.Context, source string, p ClientGenerator, cfg 
 		return NewPodSource(ctx, client, cfg.Namespace, cfg.Compatibility)
 	case "gateway-httproute":
 		return NewGatewayHTTPRouteSource(p, cfg)
+	case "gateway-grpcroute":
+		return NewGatewayGRPCRouteSource(p, cfg)
 	case "gateway-tlsroute":
 		return NewGatewayTLSRouteSource(p, cfg)
 	case "gateway-tcproute":
@@ -328,13 +330,18 @@ func BuildWithConfig(ctx context.Context, source string, p ClientGenerator, cfg 
 			return nil, err
 		}
 		return NewKongTCPIngressSource(ctx, dynamicClient, kubernetesClient, cfg.Namespace, cfg.AnnotationFilter)
-	case "legacy-ingress":
-		client, err := p.KubeClient()
+	case "f5-virtualserver":
+		kubernetesClient, err := p.KubeClient()
 		if err != nil {
 			return nil, err
 		}
-		return NewLegacyIngressSource(ctx, client, cfg.Namespace, cfg.AnnotationFilter, cfg.FQDNTemplate, cfg.CombineFQDNAndAnnotation, cfg.IgnoreHostnameAnnotation, cfg.IgnoreIngressTLSSpec, cfg.IgnoreIngressRulesSpec, cfg.LabelFilter)
+		dynamicClient, err := p.DynamicKubernetesClient()
+		if err != nil {
+			return nil, err
+		}
+		return NewF5VirtualServerSource(ctx, dynamicClient, kubernetesClient, cfg.Namespace, cfg.AnnotationFilter)
 	}
+
 	return nil, ErrSourceNotFound
 }
 
