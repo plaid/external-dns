@@ -69,6 +69,4 @@ func (im *NoopRegistry) UsedCache() bool {
 	return false
 }
 
-func (im *NoopRegistry) ClearCache() {
-	return
-}
+func (im *NoopRegistry) ClearCache() {}
