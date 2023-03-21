@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -105,7 +105,7 @@ func NewClient(useOTE bool, apiKey, apiSecret string) (*Client, error) {
 	var endpoint string
 
 	if useOTE {
-		endpoint = " https://api.ote-godaddy.com"
+		endpoint = "https://api.ote-godaddy.com"
 	} else {
 		endpoint = "https://api.godaddy.com"
 	}
@@ -286,7 +286,7 @@ func (c *Client) CallAPIWithContext(ctx context.Context, method, path string, re
 func (c *Client) UnmarshalResponse(response *http.Response, resType interface{}) error {
 	// Read all the response body
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}

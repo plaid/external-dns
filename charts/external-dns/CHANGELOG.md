@@ -7,12 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-<!-- ## [UNRELEASED]
-### Added
-### Changed
-### Fixed
-### Deprecated
-### Removed -->
+<!-- ## [vX.Y.Z] - UNRELEASED
+### Highlights
+### All Changes
+- Added
+- Updated
+- Changed
+- Fixed
+- Deprecated
+- Removed -->
+
+## [v1.12.1] - 2023-02-06
+
+### All Changes
+
+- Updated _ExternalDNS_ version to [v0.13.2](https://github.com/kubernetes-sigs/external-dns/releases/tag/v0.13.2). ([#3371](https://github.com/kubernetes-sigs/external-dns/pull/3371)) [@stevehipwell](https://github.com/stevehipwell)
+- Added `secretConfiguration.subPath` to mount specific files from secret as a sub-path. ([#3227](https://github.com/kubernetes-sigs/external-dns/pull/3227)) [@jkroepke](https://github.com/jkroepke)
+- Changed to use `registry.k8s.io` instead of `k8s.gcr.io`. ([#3261](https://github.com/kubernetes-sigs/external-dns/pull/3261)) [@johngmyers](https://github.com/johngmyers)
+
+## [v1.12.0] - 2022-11-29
+
+### All Changes
+
+- Added ability to provide ExternalDNS with secret configuration via `secretConfiguration`. ([#3144](https://github.com/kubernetes-sigs/external-dns/pull/3144)) [@jkroepke](https://github.com/jkroepke)
+- Added the ability to template `provider` & `extraArgs`. ([#3144](https://github.com/kubernetes-sigs/external-dns/pull/3144)) [@jkroepke](https://github.com/jkroepke)
+- Added the ability to customise the service account labels. ([#3145](https://github.com/kubernetes-sigs/external-dns/pull/3145)) [@jkroepke](https://github.com/jkroepke)
+- Updated _ExternalDNS_ version to [v0.13.1](https://github.com/kubernetes-sigs/external-dns/releases/tag/v0.13.1). ([#3197](https://github.com/kubernetes-sigs/external-dns/pull/3197)) [@stevehipwell](https://github.com/stevehipwell)
 
 ## [v1.11.0] - 2022-08-10
 

@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/external-dns/provider/awssd"
 	"sigs.k8s.io/external-dns/provider/azure"
 	"sigs.k8s.io/external-dns/provider/bluecat"
+	"sigs.k8s.io/external-dns/provider/civo"
 	"sigs.k8s.io/external-dns/provider/cloudflare"
 	"sigs.k8s.io/external-dns/provider/coredns"
 	"sigs.k8s.io/external-dns/provider/designate"
@@ -59,6 +60,7 @@ import (
 	"sigs.k8s.io/external-dns/provider/oci"
 	"sigs.k8s.io/external-dns/provider/ovh"
 	"sigs.k8s.io/external-dns/provider/pdns"
+	"sigs.k8s.io/external-dns/provider/pihole"
 	"sigs.k8s.io/external-dns/provider/plural"
 	"sigs.k8s.io/external-dns/provider/rcode0"
 	"sigs.k8s.io/external-dns/provider/rdns"
@@ -229,8 +231,10 @@ func main() {
 		p, err = vultr.NewVultrProvider(ctx, domainFilter, cfg.DryRun)
 	case "ultradns":
 		p, err = ultradns.NewUltraDNSProvider(domainFilter, cfg.DryRun)
+	case "civo":
+		p, err = civo.NewCivoProvider(domainFilter, cfg.DryRun)
 	case "cloudflare":
-		p, err = cloudflare.NewCloudFlareProvider(domainFilter, zoneIDFilter, cfg.CloudflareZonesPerPage, cfg.CloudflareProxied, cfg.DryRun)
+		p, err = cloudflare.NewCloudFlareProvider(domainFilter, zoneIDFilter, cfg.CloudflareProxied, cfg.DryRun, cfg.CloudflareDNSRecordsPerPage)
 	case "rcodezero":
 		p, err = rcode0.NewRcodeZeroProvider(domainFilter, cfg.DryRun, cfg.RcodezeroTXTEncrypt)
 	case "google":
@@ -257,7 +261,8 @@ func main() {
 				View:          cfg.InfobloxView,
 				MaxResults:    cfg.InfobloxMaxResults,
 				DryRun:        cfg.DryRun,
-				FQDNRexEx:     cfg.InfobloxFQDNRegEx,
+				FQDNRegEx:     cfg.InfobloxFQDNRegEx,
+				NameRegEx:     cfg.InfobloxNameRegEx,
 				CreatePTR:     cfg.InfobloxCreatePTR,
 				CacheDuration: cfg.InfobloxCacheDuration,
 			},
@@ -333,6 +338,16 @@ func main() {
 		p, err = godaddy.NewGoDaddyProvider(ctx, domainFilter, cfg.GoDaddyTTL, cfg.GoDaddyAPIKey, cfg.GoDaddySecretKey, cfg.GoDaddyOTE, cfg.DryRun)
 	case "gandi":
 		p, err = gandi.NewGandiProvider(ctx, domainFilter, cfg.DryRun)
+	case "pihole":
+		p, err = pihole.NewPiholeProvider(
+			pihole.PiholeConfig{
+				Server:                cfg.PiholeServer,
+				Password:              cfg.PiholePassword,
+				TLSInsecureSkipVerify: cfg.PiholeTLSInsecureSkipVerify,
+				DomainFilter:          domainFilter,
+				DryRun:                cfg.DryRun,
+			},
+		)
 	case "ibmcloud":
 		p, err = ibmcloud.NewIBMCloudProvider(cfg.IBMCloudConfigFile, domainFilter, zoneIDFilter, endpointsSource, cfg.IBMCloudProxied, cfg.DryRun)
 	case "safedns":
