@@ -141,6 +141,9 @@ build.push-arm64:
 build.push-arm/v7:
 	$(MAKE) ARCH=arm/v7 build.push
 
+build.:
+	CGO_ENABLED=0 go build -o build/$(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" .
+
 build.arm64:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o build/$(BINARY) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" .
 
