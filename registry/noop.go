@@ -64,9 +64,3 @@ func (im *NoopRegistry) PropertyValuesEqual(attribute string, previous string, c
 func (im *NoopRegistry) AdjustEndpoints(endpoints []*endpoint.Endpoint) []*endpoint.Endpoint {
 	return im.provider.AdjustEndpoints(endpoints)
 }
-
-func (im *NoopRegistry) UsedCache() bool {
-	return false
-}
-
-func (im *NoopRegistry) ClearCache() {}

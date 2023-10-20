@@ -223,12 +223,6 @@ func (c *Controller) RunOnce(ctx context.Context) error {
 	plan = plan.Calculate()
 
 	if plan.Changes.HasChanges() {
-		// FIXME: this is terrible
-		// basically if we see that we are going to change something but we used the cache, we re-run the plan without the cache
-		if c.Registry.UsedCache() {
-			c.Registry.ClearCache()
-			return c.RunOnce(ctx)
-		}
 		err = c.Registry.ApplyChanges(ctx, plan.Changes)
 		if err != nil {
 			registryErrorsTotal.Inc()
