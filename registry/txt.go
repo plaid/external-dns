@@ -42,7 +42,6 @@ type TXTRegistry struct {
 	recordsCache            []*endpoint.Endpoint
 	recordsCacheRefreshTime time.Time
 	cacheInterval           time.Duration
-	usedCache               bool
 
 	// the set of existing txt records, used to avoid deleting records that do not actually exist
 	txtRecords map[string]bool
@@ -96,10 +95,8 @@ func (im *TXTRegistry) Records(ctx context.Context) ([]*endpoint.Endpoint, error
 	// last given interval, then just use the cached results.
 	if im.recordsCache != nil && time.Since(im.recordsCacheRefreshTime) < im.cacheInterval {
 		log.Debug("Using cached records.")
-		im.usedCache = true
 		return im.recordsCache, nil
 	}
-	im.usedCache = false
 
 	records, err := im.provider.Records(ctx)
 	if err != nil {
@@ -480,12 +477,4 @@ func (im *TXTRegistry) filterExistingRecords(records []*endpoint.Endpoint) []*en
 		}
 	}
 	return filtered
-}
-
-func (im *TXTRegistry) UsedCache() bool {
-	return im.usedCache
-}
-
-func (im *TXTRegistry) ClearCache() {
-	im.recordsCache = nil
 }
